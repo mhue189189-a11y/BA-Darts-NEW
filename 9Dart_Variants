@@ -1,0 +1,105 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import quad
+from scipy.optimize import minimize_scalar
+
+# BOARD + INTEGRAL
+R_BULL_INNER = 6.35
+R_BULL_OUTER = 15.9
+R_TRIPLE_INNER = 99.0
+R_TRIPLE_OUTER = 107.0
+R_DOUBLE_INNER = 162.0
+R_DOUBLE_OUTER = 170.0
+segments = np.array([20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5])
+ANGLE_PER_SEG = 2 * np.pi / 20
+
+def get_angle_for_segment_20():
+    i = np.where(segments == 20)[0][0]
+    return np.pi/2 - (i + 0.5) * ANGLE_PER_SEG + np.pi/20
+
+ANGLE_T20 = get_angle_for_segment_20()
+THETA_MIN_T20 = ANGLE_T20 - ANGLE_PER_SEG / 2
+THETA_MAX_T20 = ANGLE_T20 + ANGLE_PER_SEG / 2
+
+def gaussian_polar_integrand(theta, rho, r0, theta0, sigma):
+    return np.exp(-(rho**2 + r0**2 - 2 * rho * r0 * np.cos(theta - theta0)) / (2 * sigma**2))
+
+def integrate_over_region(r_min, r_max, theta_min, theta_max, r0, theta0, sigma):
+    def inner(theta, rho):
+        return rho * gaussian_polar_integrand(theta, rho, r0, theta0, sigma)
+    def radial(rho):
+        v, _ = quad(inner, theta_min, theta_max, args=(rho,), epsabs=1e-7, epsrel=1e-7)
+        return v
+    val, _ = quad(radial, r_min, r_max, epsabs=1e-7, epsrel=1e-7)
+    return val / (2 * np.pi * sigma**2)
+
+def p_T20(r0, sigma):
+    r0 = float(r0)
+    return integrate_over_region(R_TRIPLE_INNER, R_TRIPLE_OUTER, THETA_MIN_T20, THETA_MAX_T20, r0, ANGLE_T20, sigma)
+
+def p_Bullseye(r0, sigma):
+    r0 = float(r0)
+    return integrate_over_region(0, R_BULL_INNER, 0, 2*np.pi, r0, 0, sigma)
+
+def p_Double(r0, sigma):
+    r0 = float(r0)
+    i = np.where(segments == 1)[0][0]
+    angle_d = np.pi/2 - (i + 0.5) * ANGLE_PER_SEG + np.pi/20
+    theta_min_d = angle_d - ANGLE_PER_SEG / 2
+    theta_max_d = angle_d + ANGLE_PER_SEG / 2
+    return integrate_over_region(R_DOUBLE_INNER, R_DOUBLE_OUTER, theta_min_d, theta_max_d, r0, angle_d, sigma)
+
+def find_max_pT20(sigma, bracket=(90, 130), tol=1e-6):
+    def neg(r):
+        return -p_T20(r, sigma)
+    res = minimize_scalar(neg, bounds=bracket, tol=tol, method='bounded')
+    return res.x, -res.fun
+
+def find_max_pBull(sigma, bracket=(0, 15), tol=1e-6):
+    def neg(r):
+        return -p_Bullseye(r, sigma)
+    res = minimize_scalar(neg, bounds=bracket, tol=tol, method='bounded')
+    return res.x, -res.fun
+
+def find_max_pDouble(sigma, bracket=(140, 190), tol=1e-6):
+    def neg(r):
+        return -p_Double(r, sigma)
+    res = minimize_scalar(neg, bounds=bracket, tol=tol, method='bounded')
+    return res.x, -res.fun
+
+def nine_darter_E_8T1Double(rT, rD, sigma):
+    return p_T20(rT, sigma)**8 * p_Double(rD, sigma)
+
+def nine_darter_E_6T3Bull(rT, rB, sigma):
+    return p_T20(rT, sigma)**6 * p_Bullseye(rB, sigma)**3
+
+def nine_darter_E_1D7T1Bull(rD, rT, rB, sigma):
+    return p_Double(rD, sigma) * p_T20(rT, sigma)**7 * p_Bullseye(rB, sigma)
+
+def compare_three_strategies_log():
+    sigmas = np.linspace(5, 45, 12)
+    E8 = []
+    E6 = []
+    E1D = []
+    for sigma in sigmas:
+        sigma = float(sigma)
+        rT_opt, _ = find_max_pT20(sigma)
+        rB_opt, _ = find_max_pBull(sigma)
+        rD_opt, _ = find_max_pDouble(sigma)
+        E8.append(nine_darter_E_8T1Double(rT_opt, rD_opt, sigma))
+        E6.append(nine_darter_E_6T3Bull(rT_opt, rB_opt, sigma))
+        E1D.append(nine_darter_E_1D7T1Bull(rD_opt, rT_opt, rB_opt, sigma))
+    plt.figure(figsize=(13, 8))
+    plt.semilogy(sigmas, E8, 'o-', lw=2.5, label='8× Triple + 1× Double (klassisch)')
+    plt.semilogy(sigmas, E6, 's--', lw=2.5, label='6× Triple + 3× Bullseye (perfekt)')
+    plt.semilogy(sigmas, E1D, '^-', lw=2.5, label='1× Double + 7× Triple + 1× Bullseye (Double-In)')
+    plt.xlabel("σ (mm)")
+    plt.ylabel("9-Darter Wahrscheinlichkeit (log-Skala)")
+    plt.title("Vergleich 9-Darter Strategien (Optimal)")
+    plt.grid(True, which="both", alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == "__main__":
+    compare_three_strategies_log()
