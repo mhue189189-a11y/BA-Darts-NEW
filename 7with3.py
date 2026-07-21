@@ -1,191 +1,485 @@
+# ============================================================
+# VERGLEICHPLOT FÜR FESTES SIGMA (MIT QUOTIENT C4/C2)
+# ============================================================
+
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.integrate import quad
-from scipy.optimize import minimize_scalar
-from scipy.special import i0e
-from scipy.interpolate import interp1d
 
-# ========================================================
-# TEIL 1: r1_opt aus dem ersten Skript (C3-Optimierung)
-# ========================================================
+from scipy.integrate import quad
+from scipy.optimize import minimize_scalar, minimize
+from scipy.special import i0e
+
+# ============================================================
+# BOARD
+# ============================================================
+
 R_BULL_OUTER = 15.9
+
 R_TRIPLE_INNER = 99
 R_TRIPLE_OUTER = 107
+
 R_DOUBLE_INNER = 162
 R_DOUBLE_OUTER = 170
+
 ALPHA = np.pi / 20
-R1_SMALL_SIGMA = 137.12
+
+# ============================================================
+# NAIVE
+# ============================================================
+
+R1_NAIVE = (R_TRIPLE_OUTER + R_DOUBLE_INNER) / 2
+
+R2_NAIVE = 166
+R3_NAIVE = 166
+
+# ============================================================
+# GREEDY
+# ============================================================
+
+R1_GREEDY_SMALL_SIGMA = 137.12
+
+# ============================================================
+# GAUSS
+# ============================================================
 
 def gaussian_density(x, y, mu_x, mu_y, sigma):
-    return (1 / (2 * np.pi * sigma**2) *
-            np.exp(-((x - mu_x)**2 + (y - mu_y)**2) / (2 * sigma**2)))
+    return (
+        1 / (2 * np.pi * sigma**2)
+        * np.exp(
+            -((x - mu_x)**2 + (y - mu_y)**2)
+            / (2 * sigma**2)
+        )
+    )
+
+# ============================================================
+# p_D1
+# ============================================================
 
 def p_det(r, sigma):
     def integrand(theta, rho):
         x = rho * np.cos(theta)
         y = rho * np.sin(theta)
-        return gaussian_density(x, y, r, 0, sigma) * rho
-    val, _ = quad(lambda rho: quad(lambda theta: integrand(theta, rho), -ALPHA, ALPHA)[0],
-                  R_DOUBLE_INNER, R_DOUBLE_OUTER, epsabs=1e-8, epsrel=1e-8)
+        return (
+            gaussian_density(x, y, r, 0, sigma)
+            * rho
+        )
+
+    val, _ = quad(
+        lambda rho:
+        quad(
+            lambda theta:
+                integrand(theta, rho),
+            -ALPHA,
+            ALPHA
+        )[0],
+        R_DOUBLE_INNER,
+        R_DOUBLE_OUTER,
+        epsabs=1e-8,
+        epsrel=1e-8
+    )
     return val
+
+# ============================================================
+# q_D1
+# ============================================================
 
 def rice_pdf(rho, r, sigma):
     x = rho * r / sigma**2
-    return (rho / sigma**2 * np.exp(-((rho - r)**2) / (2 * sigma**2)) * i0e(x))
+    return (
+        rho / sigma**2
+        * np.exp(-((rho - r)**2) / (2 * sigma**2))
+        * i0e(x)
+    )
 
 def Q_det(r, sigma):
-    val, _ = quad(lambda rho: rice_pdf(rho, r, sigma), 0, R_DOUBLE_OUTER,
-                  epsabs=1e-8, epsrel=1e-8, limit=200)
+    val, _ = quad(
+        lambda rho: rice_pdf(rho, r, sigma),
+        0,
+        R_DOUBLE_OUTER,
+        epsabs=1e-8,
+        epsrel=1e-8,
+        limit=200
+    )
     return val
 
+def q_det(r, sigma):
+    return Q_det(r, sigma) - p_det(r, sigma)
+
+# ============================================================
+# p1
+# ============================================================
+
 def p1_det(r, sigma):
-    intervals = [(R_BULL_OUTER, R_TRIPLE_INNER), (R_TRIPLE_OUTER, R_DOUBLE_INNER)]
+    intervals = [
+        (R_BULL_OUTER, R_TRIPLE_INNER),
+        (R_TRIPLE_OUTER, R_DOUBLE_INNER)
+    ]
     total = 0
     for r_min, r_max in intervals:
         def integrand(theta, rho):
             x = rho * np.cos(theta)
             y = rho * np.sin(theta)
-            return gaussian_density(x, y, r, 0, sigma) * rho
-        val, _ = quad(lambda rho: quad(lambda theta: integrand(theta, rho), -ALPHA, ALPHA)[0],
-                      r_min, r_max, epsabs=1e-8, epsrel=1e-8)
+            return (
+                gaussian_density(x, y, r, 0, sigma)
+                * rho
+            )
+
+        val, _ = quad(
+            lambda rho:
+                quad(
+                    lambda theta:
+                        integrand(theta, rho),
+                    -ALPHA,
+                    ALPHA
+                )[0],
+            r_min,
+            r_max,
+            epsabs=1e-8,
+            epsrel=1e-8
+        )
         total += val
     return total
+
+# ============================================================
+# p0
+# ============================================================
 
 def p0_det(r, sigma):
     return 1 - Q_det(r, sigma)
 
+# ============================================================
+# OPTIMALE RADII
+# ============================================================
+
 def find_r3_det(sigma):
-    res = minimize_scalar(lambda r: -p_det(r, sigma), bounds=(155, 175), method='bounded')
+    res = minimize_scalar(
+        lambda r: -p_det(r, sigma),
+        bounds=(155, 175),
+        method='bounded'
+    )
     return res.x
 
-def p1_maximum(sigma):
-    res = minimize_scalar(lambda r: -p1_det(r, sigma), bounds=(0, 200), method='bounded')
+# ============================================================
+# ECHTES MAXIMUM VON p1
+# ============================================================
+
+def true_p1_maximum(sigma):
+    res = minimize_scalar(
+        lambda r: -p1_det(r, sigma),
+        bounds=(0, 200),
+        method='bounded'
+    )
     return res.x
+
+# ============================================================
+# GREEDY
+# ============================================================
 
 def greedy_r1(sigma):
     if sigma <= 10:
-        return R1_SMALL_SIGMA
-    return p1_maximum(sigma)
+        return R1_GREEDY_SMALL_SIGMA
+    return true_p1_maximum(sigma)
+
+# ============================================================
+# 3-DART OPTIMIERUNG
+# ============================================================
+
+def checkout_value_det(r, rs, P_det_vals, Q_det_vals, r3):
+    r1, r2 = r
+    p1 = np.interp(r1, rs, P_det_vals)
+    q1 = np.interp(r1, rs, Q_det_vals)
+    p2 = np.interp(r2, rs, P_det_vals)
+    q2 = np.interp(r2, rs, Q_det_vals)
+    p3 = np.interp(r3, rs, P_det_vals)
+
+    val = (
+        p1
+        + (1 - p1 - q1)
+        * (
+            p2
+            + (1 - p2 - q2) * p3
+        )
+    )
+    return -val
+
+def optimize_r1_r2_det(rs, P_det_vals, Q_det_vals, r3):
+    r_init = rs[np.argmax(P_det_vals)]
+    res = minimize(
+        checkout_value_det,
+        x0=[r_init, r_init],
+        args=(rs, P_det_vals, Q_det_vals, r3),
+        bounds=[(0, 250), (0, 250)],
+        method='L-BFGS-B'
+    )
+    return res.x[0], res.x[1], -res.fun
+
+def optimal_strategy_3darts(sigma):
+    rs = np.linspace(0, 250, 120)
+    P_det_vals = np.array([p_det(r, sigma) for r in rs])
+    Q_det_vals = np.array([q_det(r, sigma) for r in rs])
+    r3 = find_r3_det(sigma)
+
+    r1_opt, r2_opt, val_opt = optimize_r1_r2_det(
+        rs, P_det_vals, Q_det_vals, r3
+    )
+    return r1_opt, r2_opt, r3, val_opt
+
+# ============================================================
+# C2
+# ============================================================
 
 def C2_optimal(sigma):
-    r2 = find_r3_det(sigma)
-    p2 = p_det(r2, sigma)
-    q2 = Q_det(r2, sigma) - p2
-    p3 = p_det(r2, sigma)
+    _, r2_opt, r3_opt, _ = optimal_strategy_3darts(sigma)
+    p2 = p_det(r2_opt, sigma)
+    q2 = q_det(r2_opt, sigma)
+    p3 = p_det(r3_opt, sigma)
     return p2 + (1 - p2 - q2) * p3
 
+def C2_naive(sigma):
+    p2 = p_det(R2_NAIVE, sigma)
+    q2 = q_det(R2_NAIVE, sigma)
+    p3 = p_det(R3_NAIVE, sigma)
+    return p2 + (1 - p2 - q2) * p3
+
+def C2_greedy(sigma):
+    r_double_opt = find_r3_det(sigma)
+    p2 = p_det(r_double_opt, sigma)
+    q2 = q_det(r_double_opt, sigma)
+    return p2 + (1 - p2 - q2) * p2
+
+# ============================================================
+# C4 (4 Punkte mit 2 Darts verbleibend)
+# ============================================================
+
+def C4_optimal(sigma):
+    r_double_opt = find_r3_det(sigma)
+    res = minimize_scalar(
+        lambda r: -(p_det(r, sigma) + (p0_det(r, sigma) + p1_det(r, sigma)) * p_det(r_double_opt, sigma)),
+        bounds=(120, 200), method='bounded'
+    )
+    return -res.fun
+
+def C4_naive(sigma):
+    return p_det(R2_NAIVE, sigma) + (p0_det(R2_NAIVE, sigma) + p1_det(R2_NAIVE, sigma)) * p_det(R2_NAIVE, sigma)
+
+def C4_greedy(sigma):
+    r_double_opt = find_r3_det(sigma)
+    return p_det(r_double_opt, sigma) + (p0_det(r_double_opt, sigma) + p1_det(r_double_opt, sigma)) * p_det(r_double_opt, sigma)
+
+# ============================================================
+# C3
+# ============================================================
+
 def C3_optimal(sigma):
-    if sigma <= 10:
-        r1 = R1_SMALL_SIGMA
-    else:
-        C2 = C2_optimal(sigma)
-        r2 = find_r3_det(sigma)
-        pD1 = p_det(r2, sigma)
-        def objective(r):
-            p1 = p1_det(r, sigma)
-            p0 = p0_det(r, sigma)
-            return -(p1 * C2 + p0 * (p1 * pD1))
-        res = minimize_scalar(objective, bounds=(0, 200), method='bounded')
-        r1 = res.x
-    return r1
+    r1_opt = true_p1_maximum(sigma)
+    r2_opt = find_r3_det(sigma)
+    return p1_det(r1_opt, sigma) * p_det(r2_opt, sigma)
 
-# ========================================================
-# TEIL 2: r2 und r3 aus dem zweiten Skript
-# ========================================================
-R_BULL_INNER = 6.35
-segments = np.array([20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5])
-ANGLE_PER_SEG = 2 * np.pi / 20
+def C3_naive(sigma):
+    return p1_det(R1_NAIVE, sigma) * p_det(R2_NAIVE, sigma)
 
-def get_angle_for_segment(seg_value):
-    i = np.where(segments == seg_value)[0][0]
-    return np.pi/2 - (i + 0.5) * ANGLE_PER_SEG + np.pi/20
+def C3_greedy(sigma):
+    r1_greed = greedy_r1(sigma)
+    r2_opt = find_r3_det(sigma)
+    return p1_det(r1_greed, sigma) * p_det(r2_opt, sigma)
 
-ANGLE_1 = get_angle_for_segment(1)
-ANGLE_2 = get_angle_for_segment(2)
-THETA_MIN_1 = ANGLE_1 - ANGLE_PER_SEG / 2
-THETA_MAX_1 = ANGLE_1 + ANGLE_PER_SEG / 2
-THETA_MIN_2 = ANGLE_2 - ANGLE_PER_SEG / 2
-THETA_MAX_2 = ANGLE_2 + ANGLE_PER_SEG / 2
+# ============================================================
+# GESAMTWERT
+# ============================================================
 
-def gaussian_polar_integrand(theta, rho, r0, theta0, sigma):
-    return np.exp(-(rho**2 + r0**2 - 2 * rho * r0 * np.cos(theta - theta0)) / (2 * sigma**2))
+def total_value(r, sigma, C2, C3):
+    p1 = p1_det(r, sigma)
+    p0 = p0_det(r, sigma)
+    return p1 * C2 + p0 * C3
 
-def integrate_over_region(r_min, r_max, theta_min, theta_max, r0, theta0, sigma):
-    def inner(theta, rho):
-        return rho * gaussian_polar_integrand(theta, rho, r0, theta0, sigma)
-    def radial(rho):
-        v, _ = quad(inner, theta_min, theta_max, args=(rho,), epsabs=1e-7, epsrel=1e-7)
-        return v
-    val, _ = quad(radial, r_min, r_max, epsabs=1e-7, epsrel=1e-7)
-    return val / (2 * np.pi * sigma**2)
+# ============================================================
+# FIXES SIGMA
+# ============================================================
 
-def p_D1(r0, sigma):
-    return integrate_over_region(R_DOUBLE_INNER, R_DOUBLE_OUTER, THETA_MIN_1, THETA_MAX_1, r0, ANGLE_1, sigma)
+def plot_total_value_fixed_sigma(sigma=40):
+    rs = np.linspace(0, 200, 800)
 
-def p_single_1(r0, sigma):
-    p_single = integrate_over_region(R_BULL_OUTER, R_DOUBLE_INNER, THETA_MIN_1, THETA_MAX_1, r0, ANGLE_1, sigma)
-    p_triple = integrate_over_region(R_TRIPLE_INNER, R_TRIPLE_OUTER, THETA_MIN_1, THETA_MAX_1, r0, ANGLE_1, sigma)
-    return p_single - p_triple
+    p1_vals = np.array([p1_det(r, sigma) for r in rs])
+    p0_vals = np.array([p0_det(r, sigma) for r in rs])
 
-def p_miss(r0, sigma):
-    def miss_int(rho):
-        v, _ = quad(lambda th: rho * gaussian_polar_integrand(th, rho, r0, ANGLE_1, sigma), 0, 2*np.pi, epsabs=1e-6, epsrel=1e-6)
-        return v
-    val, _ = quad(miss_int, R_DOUBLE_OUTER, 1000, epsabs=1e-6, epsrel=1e-6)
-    return val / (2 * np.pi * sigma**2)
+    # Konstanten für das Dartmodell
+    C2_opt = C2_optimal(sigma)
+    C2_naiv = C2_naive(sigma)
 
-def p_single_2(r0, sigma):
-    p_single = integrate_over_region(R_BULL_OUTER, R_DOUBLE_INNER, THETA_MIN_2, THETA_MAX_2, r0, ANGLE_2, sigma)
-    p_triple = integrate_over_region(R_TRIPLE_INNER, R_TRIPLE_OUTER, THETA_MIN_2, THETA_MAX_2, r0, ANGLE_2, sigma)
-    return p_single - p_triple
+    C3_opt = C3_optimal(sigma)
+    C3_naiv = C3_naive(sigma)
+    C3_greed = C3_greedy(sigma)
 
-def find_maximum_pD1(sigma, bracket=(140, 190)):
-    def neg_pD1(r): return -p_D1(r, sigma)
-    res = minimize_scalar(neg_pD1, bounds=bracket, method='bounded')
-    return res.x
+    # C4 berechnen
+    C4_opt = C4_optimal(sigma)
+    C4_naiv = C4_naive(sigma)
+    C4_greed = C4_greedy(sigma)
 
-def find_maximum_E_4points_2darts(sigma, bracket=(120, 200)):
-    r2_greedy = find_maximum_pD1(sigma, bracket=bracket)
-    def neg_E(r1):
-        p_d1 = p_D1(r1, sigma)
-        p1 = p_single_1(r1, sigma)
-        p0 = p_miss(r1, sigma)
-        E = p_d1 + (p0 + p1) * p_D1(r2_greedy, sigma)
-        return -E
-    res = minimize_scalar(neg_E, bounds=bracket, method='bounded')
-    return res.x, r2_greedy
+    # Quotienten c4/c2 bilden
+    q_opt = C4_opt / C2_opt
+    q_naiv = C4_naiv / C2_naiv
+    q_greed = C4_greed / C2_greedy(sigma)
 
-# ========================================================
-# Hauptberechnung & Plot
-# ========================================================
-sigmas = np.linspace(1, 60, 30)
+    # Gesamtwertfunktionen multipliziert mit dem Quotienten c4/c2
+    total_opt_vals = np.array([total_value(r, sigma, C2_opt, C3_opt) for r in rs]) * q_opt
+    total_greedy_vals = np.array([total_value(r, sigma, C2_opt, C3_greed) for r in rs]) * q_greed
+    total_naiv_vals = np.array([total_value(r, sigma, C2_naiv, C3_naiv) for r in rs]) * q_naiv
 
-r1_opts = []
-r2_opts = []
-r3_opts = []
+    r1_opt = rs[np.argmax(total_opt_vals)]
+    r1_greedy = greedy_r1(sigma)
+    r1_naive = R1_NAIVE
 
-for sigma in sigmas:
-    r1 = C3_optimal(sigma)
-    r1_opts.append(r1)
-    
-    _, r2 = find_maximum_E_4points_2darts(sigma)
-    r2_opts.append(r2)
-    r3_opts.append(r2)  # r3 = r2 in der aktuellen Logik
+    V_opt = np.max(total_opt_vals)
+    V_greedy = total_value(r1_greedy, sigma, C2_opt, C3_greed) * q_greed
+    V_naiv = total_value(r1_naive, sigma, C2_naiv, C3_naiv) * q_naiv
 
-r1_opts = np.array(r1_opts)
-r2_opts = np.array(r2_opts)
-r3_opts = np.array(r3_opts)
+    diff_greedy = V_opt - V_greedy
+    diff_naiv = V_opt - V_naiv
 
-# Plot
-plt.figure(figsize=(12, 8))
-plt.plot(sigmas, r1_opts, 'o-', linewidth=2.5, label='r₁* (optimal)', color='darkblue')
-plt.plot(sigmas, r2_opts, '^-', linewidth=2.5, label='r₂', color='darkred')
-plt.plot(sigmas, r3_opts, 'd-', linewidth=2.5, label='r₃', color='darkgreen')
+    print("\n================================================")
+    print(f"σ = {sigma}")
+    print("================================================")
+    print(f"\nr1_opt     = {r1_opt:.6f}")
+    print(f"r1_greedy  = {r1_greedy:.6f}")
+    print(f"r1_naive   = {r1_naive:.6f}")
+    print(f"\nV_opt      = {V_opt:.10f}")
+    print(f"V_greedy   = {V_greedy:.10f}")
+    print(f"V_naiv     = {V_naiv:.10f}")
+    print(f"\nOpt-Greedy = {diff_greedy:.10f}")
+    print(f"Opt-Naiv   = {diff_naiv:.10f}")
 
-plt.xlabel(r'$\sigma$ (mm)')
-plt.ylabel(r'Zielradius $r$ (mm)')
-plt.title('Optimale Zielradien für den 7-Punkte-Checkout mit 3 Darts')
-plt.grid(True, alpha=0.3)
-plt.legend()
-plt.tight_layout()
-plt.show()
+    plt.figure(figsize=(12, 7))
+
+    plt.plot(rs, p1_vals, linewidth=2, alpha=0.8, label=r"$p_1(r)$")
+    plt.plot(rs, p0_vals, linewidth=2, alpha=0.8, label=r"$p_0(r)$")
+
+    plt.plot(rs, total_opt_vals, linewidth=3, label=r"$V_{\mathrm{opt}}(r) \cdot (C_4/C_2)$")
+    plt.plot(rs, total_greedy_vals, linestyle='--', linewidth=3, label=r"$V_{\mathrm{greedy}}(r) \cdot (C_4/C_2)$")
+    plt.plot(rs, total_naiv_vals, linestyle=':', linewidth=3, label=r"$V_{\mathrm{naiv}}(r) \cdot (C_4/C_2)$")
+
+    plt.axvline(r1_opt, linewidth=2, label=rf"$r_1^*={r1_opt:.2f}$")
+    plt.axvline(r1_greedy, linestyle='--', linewidth=2, label=rf"$r_1^{{greedy}}={r1_greedy:.2f}$")
+    plt.axvline(r1_naive, linestyle=':', linewidth=2, label=rf"$r_1^{{naiv}}={r1_naive:.2f}$")
+
+    plt.xlabel("r (mm)")
+    plt.ylabel("Skalierte Wahrscheinlichkeit")
+    plt.title(rf"Strategievergleich für $\sigma={sigma}$ (multipliziert mit $C_4/C_2$)")
+    plt.grid()
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+# ============================================================
+# SIGMA-STUDIE
+# ============================================================
+
+def sigma_study():
+    sigmas = np.linspace(1, 60, 25)
+
+    r1_opts = []
+    r1_greeds = []
+    vals_opt = []
+    vals_greedy = []
+    vals_naive = []
+    diff_opt_greedy = []
+    diff_opt_naive = []
+
+    for sigma in sigmas:
+        print(f"σ = {sigma:.2f}")
+        rs = np.linspace(0, 200, 80)
+
+        C2_opt = C2_optimal(sigma)
+        C2_naiv = C2_naive(sigma)
+
+        C3_opt = C3_optimal(sigma)
+        C3_naiv = C3_naive(sigma)
+        C3_greed = C3_greedy(sigma)
+
+        C4_opt = C4_optimal(sigma)
+        C4_naiv = C4_naive(sigma)
+        C4_greed = C4_greedy(sigma)
+
+        # Quotienten bilden
+        q_opt = C4_opt / C2_opt
+        q_naiv = C4_naiv / C2_naiv
+        q_greed = C4_greed / C2_greedy(sigma)
+
+        total_opt_vals = np.array([
+            total_value(r, sigma, C2_opt, C3_opt)
+            for r in rs
+        ]) * q_opt
+
+        r1_opt = rs[np.argmax(total_opt_vals)]
+        V_opt = np.max(total_opt_vals)
+
+        r1_greed = greedy_r1(sigma)
+
+        V_greedy = total_value(
+            r1_greed,
+            sigma,
+            C2_opt,
+            C3_greed
+        ) * q_greed
+
+        V_naiv = total_value(
+            R1_NAIVE,
+            sigma,
+            C2_naiv,
+            C3_naiv
+        ) * q_naiv
+
+        r1_opts.append(r1_opt)
+        r1_greeds.append(r1_greed)
+
+        vals_opt.append(V_opt)
+        vals_greedy.append(V_greedy)
+        vals_naive.append(V_naiv)
+
+        diff_opt_greedy.append(V_opt - V_greedy)
+        diff_opt_naive.append(V_opt - V_naiv)
+
+    # PLOT 1: Radien
+    plt.figure(figsize=(10, 6))
+    plt.plot(sigmas, r1_opts, linewidth=3, label=r"$r_1^\ast(\sigma)$")
+    plt.plot(sigmas, r1_greeds, linestyle='--', linewidth=2, label=r"$r_1^{greedy}(\sigma)$")
+    plt.axhline(R1_NAIVE, linestyle=':', linewidth=2, label=r"$r_1^{naiv}$")
+    plt.xlabel(r"$\sigma$ (mm)")
+    plt.ylabel(r"$r_1$ (mm)")
+    plt.title(r"Optimales $r_1$ relativ zu $\sigma$")
+    plt.grid()
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    # PLOT 2: Erfolgswahrscheinlichkeiten (skaliert)
+    plt.figure(figsize=(10, 6))
+    plt.plot(sigmas, vals_greedy, linewidth=2, label="Optimal")
+    plt.plot(sigmas, vals_opt, linewidth=3, linestyle=":", label="Greedy")
+
+    plt.plot(sigmas, vals_naive, linestyle=':', linewidth=2, label="Naiv")
+    plt.xlabel(r"$\sigma$ (mm)")
+    plt.ylabel("Modifizierte Erfolgswahrscheinlichkeit")
+    plt.title("Strategievergleich 7-Punkte-Checkout mit 3 Darts relativ zu σ")
+    plt.grid()
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    # PLOT 3: Differenzen
+    plt.figure(figsize=(10, 6))
+    plt.plot(sigmas, diff_opt_greedy, linewidth=3, label="Optimal - Greedy")
+    plt.plot(sigmas, diff_opt_naive, linewidth=3, label="Optimal - Naiv")
+    plt.xlabel(r"$\sigma$ (mm)")
+    plt.ylabel("Absolute Differenz (skaliert)")
+    plt.title("Strategiedifferenzen (mit Quotient $C_4/C_2$) relativ zu σ")
+    plt.grid()
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+# ============================================================
+# MAIN
+# ============================================================
+
+if __name__ == "__main__":
+    sigma_study()
