@@ -158,19 +158,22 @@ def find_maximum_E_4points_2darts(sigma, bracket=(120, 200)):
 # ========================================================
 # Hauptberechnung & Plot
 # ========================================================
-sigmas = np.linspace(1, 60, 30)
+sigmas = np.linspace(3, 60, 30)
 
 r1_opts = []
 r2_opts = []
 r3_opts = []
 
 for sigma in sigmas:
+    # r1: optimaler erster Dart (3-Dart-Optimierung)
     r1 = C3_optimal(sigma)
     r1_opts.append(r1)
-    
-    _, r2 = find_maximum_E_4points_2darts(sigma)
-    r2_opts.append(r2)
-    r3_opts.append(r2)  # r3 = r2 in der aktuellen Logik
+
+    # r2: optimaler zweiter Dart (aus 2-Dart-Subproblem)
+    # r3: greedy-optimaler dritter Dart (maximiert p_D1 direkt)
+    r2_val, r3_val = find_maximum_E_4points_2darts(sigma)
+    r2_opts.append(r2_val)
+    r3_opts.append(r3_val)
 
 r1_opts = np.array(r1_opts)
 r2_opts = np.array(r2_opts)
@@ -178,9 +181,9 @@ r3_opts = np.array(r3_opts)
 
 # Plot
 plt.figure(figsize=(12, 8))
-plt.plot(sigmas, r1_opts, 'o-', linewidth=2.5, label='r₁* (optimal)', color='darkblue')
-plt.plot(sigmas, r2_opts, '^-', linewidth=2.5, label='r₂', color='darkred')
-plt.plot(sigmas, r3_opts, 'd-', linewidth=2.5, label='r₃', color='darkgreen')
+plt.plot(sigmas, r1_opts, 'o-', linewidth=2.5, label=r'$r_1^\ast$ (optimal)', color='darkblue')
+plt.plot(sigmas, r2_opts, '^-', linewidth=2.5, label=r'$r_2^\ast$', color='darkred')
+plt.plot(sigmas, r3_opts, 'd-', linewidth=2.5, label=r'$r_3^\ast$', color='darkgreen')
 
 plt.xlabel(r'$\sigma$ (mm)')
 plt.ylabel(r'Zielradius $r$ (mm)')
