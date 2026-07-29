@@ -200,17 +200,7 @@ def plot_8points_comparison(results):
     axs[1].legend()
     plt.tight_layout()
    
-    # 2. Optimale Radien
-    fig, ax = plt.subplots(figsize=(12, 7))
-    fig.suptitle("Optimale Zielradien r1 für 8-Punkte-Checkout mit 2 Darts", fontsize=16)
-    ax.plot(sig, results['r_opt'], 'o-', lw=2.5, label='r1_opt (Optimal)', color='darkblue')
-    ax.plot(sig, [166.0]*len(sig), 's--', lw=2, label='r_naive = 166 mm', color='darkorange')
-    ax.plot(sig, results['r_greedy'], 'd-.', lw=2, label='r_greedy = r_max_D1', color='green')
-    ax.set_xlabel(r"σ (mm)")
-    ax.set_ylabel("Radius r1 (mm)")
-    ax.grid(True, alpha=0.3)
-    ax.legend()
-    plt.tight_layout()
+   
     
 # ============================================================
 # MAIN
