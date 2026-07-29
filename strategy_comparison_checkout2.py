@@ -316,71 +316,7 @@ def compare_strategies_vs_sigma():
     plt.grid()
     plt.show()
 
-    # -----------------------------
-    # Plot 2: Wann wird gecheckt
-    # -----------------------------
-    plt.figure(figsize=(9,6))
 
-    plt.plot(sigmas, P1_list, label="Dart 1")
-    plt.plot(sigmas, P2_list, label="Dart 2")
-    plt.plot(sigmas, P3_list, label="Dart 3")
-
-    plt.plot(sigmas, P1_list + P2_list + P3_list,
-             '--', label="Summe", alpha=0.5)
-
-    plt.xlabel("σ (mm)")
-    plt.ylabel("Wahrscheinlichkeit")
-    plt.title("Checkout-Verteilung (optimal)")
-
-    plt.legend()
-    plt.grid()
-    plt.show()
-
-    #Plot 3
-
-    plt.figure(figsize=(9,6))
-
-    plt.plot(sigmas, p1_vals, label="p(r1*)")
-    plt.plot(sigmas, p2_vals, label="p(r2*)")
-    plt.plot(sigmas, p3_vals, label="p(r3*)")
-    
-    plt.xlabel("σ (mm)")
-    plt.ylabel("Trefferwahrscheinlichkeit p(r)")
-    plt.title("Gewählte Ziel-Wahrscheinlichkeiten (optimale Strategie)")
-    
-    plt.legend()
-    plt.grid()
-    plt.show()
-    #Plot 4
-
-    plt.figure(figsize=(9,6))
-    
-    plt.plot(sigmas, etas_opt, linewidth=2,
-             label="Optimal")
-    
-    plt.plot(sigmas, etas_naive, '--',
-             label="Naiv")
-    
-    plt.plot(sigmas, etas_greedy, ':',
-             label="Greedy")
-    
-    # Differenzen
-   
-    
-    plt.plot(sigmas,
-             -(etas_opt - etas_greedy),
-             label="Diff Greedy - Opt",
-             alpha=0.8)
-    
-    plt.xlabel("σ (mm)")
-    plt.ylabel("Mittlere Checkoutquote pro Dart")
-    
-    plt.title("Checkout-Effizienz pro Dart")
-    
-    plt.legend()
-    plt.grid()
-    
-    plt.show()
 # -----------------------------
 # MAIN
 # -----------------------------
