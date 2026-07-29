@@ -322,34 +322,6 @@ def compare_2dart_strategies():
     # Verwendete Radien
     # --------------------------------------------------------
 
-    plt.figure(figsize=(9,6))
-
-    plt.plot(
-        sigmas,
-        r2_list,
-        linewidth=2,
-        label=r"$r_2^\ast$"
-    )
-
-    plt.plot(
-        sigmas,
-        r3_list,
-        linewidth=2,
-        label=r"$r_3^\ast$"
-    )
-
-    plt.xlabel("σ (mm)")
-    plt.ylabel("Optimaler Radius (mm)")
-
-    plt.title(
-        "Verwendete optimale Radien für 2 Darts"
-    )
-
-    plt.legend()
-    plt.grid()
-
-    plt.show()
-
 # ------------------------------------------------------------
 # MAIN
 # ------------------------------------------------------------
