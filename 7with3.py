@@ -438,20 +438,9 @@ def sigma_study():
         diff_opt_greedy.append(V_opt - V_greedy)
         diff_opt_naive.append(V_opt - V_naiv)
 
-    # PLOT 1: Radien
-    plt.figure(figsize=(10, 6))
-    plt.plot(sigmas, r1_opts, linewidth=3, label=r"$r_1^\ast(\sigma)$")
-    plt.plot(sigmas, r1_greeds, linestyle='--', linewidth=2, label=r"$r_1^{greedy}(\sigma)$")
-    plt.axhline(R1_NAIVE, linestyle=':', linewidth=2, label=r"$r_1^{naiv}$")
-    plt.xlabel(r"$\sigma$ (mm)")
-    plt.ylabel(r"$r_1$ (mm)")
-    plt.title(r"Optimales $r_1$ relativ zu $\sigma$")
-    plt.grid()
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+ 
 
-    # PLOT 2: Erfolgswahrscheinlichkeiten (skaliert)
+    # PLOT : Erfolgswahrscheinlichkeiten (skaliert)
     plt.figure(figsize=(10, 6))
     plt.plot(sigmas, vals_greedy, linewidth=2, label="Optimal")
     plt.plot(sigmas, vals_opt, linewidth=3, linestyle=":", label="Greedy")
@@ -465,17 +454,7 @@ def sigma_study():
     plt.tight_layout()
     plt.show()
 
-    # PLOT 3: Differenzen
-    plt.figure(figsize=(10, 6))
-    plt.plot(sigmas, diff_opt_greedy, linewidth=3, label="Optimal - Greedy")
-    plt.plot(sigmas, diff_opt_naive, linewidth=3, label="Optimal - Naiv")
-    plt.xlabel(r"$\sigma$ (mm)")
-    plt.ylabel("Absolute Differenz (skaliert)")
-    plt.title("Strategiedifferenzen (mit Quotient $C_4/C_2$) relativ zu σ")
-    plt.grid()
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+
 
 # ============================================================
 # MAIN
